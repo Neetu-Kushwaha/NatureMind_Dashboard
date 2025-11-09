@@ -185,7 +185,7 @@ with tab2:
     with col3:
         st.image("finance_damage_by_asset.png", caption="Estimated Damages by Asset Type (€)", use_container_width=True)
     with col4:
-        st.image("finance_damage_proportion.png", caption="Proportion of Total Flood-Related Financial Damage (%)", use_container_width=True)
+        st.image("finance_damage_proportion1.png", caption="Proportion of Total Flood-Related Financial Damage (%)", use_container_width=True)
 
 # ------------------------------
 # REPORT TAB
