@@ -210,7 +210,7 @@ with tab3:
         """, unsafe_allow_html=True)
 
         try:
-            with open("NatureMind_Final_Report.docx", "rb") as f:
+            with open("NatureMind_Final_Report1.docx", "rb") as f:
                 st.download_button(
                     label=" Download NatureMind Final Report",
                     data=f,
