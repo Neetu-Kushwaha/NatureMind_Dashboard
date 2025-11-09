@@ -3,7 +3,7 @@ import folium
 from streamlit_folium import st_folium
 import base64
 from streamlit.components.v1 import html
-from streamlit.components.v1 import html
+
 # ------------------------------
 # PAGE CONFIG
 # ------------------------------
@@ -13,37 +13,44 @@ st.set_page_config(page_title="NatureMind AI Dashboard", layout="wide")
 # SIDEBAR – LOGO + PARAMETERS
 # ------------------------------
 st.sidebar.image("nature_logo.png", use_container_width=True)
-st.sidebar.markdown("### 🔧 LLM & System Parameters")
+st.sidebar.markdown("### LLM & System Parameters")
 
-query = st.sidebar.text_input("User Query", "Analyze flood resilience for Oxfordshire flood zones")
+# Use session state to persist submit action
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+
+query = st.sidebar.text_input(
+    "User Query",
+    placeholder="Enter your query (e.g., Analyze flood resilience for Oxfordshire flood zones)"
+)
 uploaded_file = st.sidebar.file_uploader("Upload PDF (Optional)", type=["pdf"])
+
 if st.sidebar.button("Submit Query"):
-    st.sidebar.success("Query submitted successfully!")
+    if query.strip():
+        st.session_state.submitted = True
+        st.sidebar.success(" Query submitted successfully!")
+    else:
+        st.sidebar.warning(" Please enter a valid query before submitting.")
 
-confidence = st.sidebar.slider("LLM Confidence", 0.0, 1.0, 0.92)
-mode = "Auto" if confidence >= 0.6 else "Interactive"
-st.sidebar.write(f"**Mode:** {mode}")
-st.sidebar.write(f"**Location:** Oxfordshire, England")
+# Only show indicators and map after submission
+if st.session_state.submitted:
+    confidence = st.sidebar.slider("LLM Confidence", 0.0, 1.0, 0.92)
+    mode = "Auto" if confidence >= 0.6 else "Interactive"
+    st.sidebar.write(f"**Mode:** {mode}")
+    st.sidebar.write(f"**Location:** Oxfordshire, England")
 
-st.sidebar.divider()
-st.sidebar.markdown("#### Model Indicators")
-flood_risk = st.sidebar.slider("Flood Risk", 0.0, 1.0, 0.82)
-ndvi = st.sidebar.slider("NDVI (Vegetation Index)", 0.0, 1.0, 0.48)
-impervious = st.sidebar.slider("Imperviousness", 0.0, 1.0, 0.63)
-resilience = round(0.4*(1-flood_risk) + 0.3*(ndvi) + 0.3*(1-impervious), 2)
-st.sidebar.metric("Resilience Score", resilience)
+    st.sidebar.divider()
+    st.sidebar.markdown("####  Model Indicators")
+    flood_risk = st.sidebar.slider("Flood Risk", 0.0, 1.0, 0.82)
+    ndvi = st.sidebar.slider("NDVI (Vegetation Index)", 0.0, 1.0, 0.48)
+    impervious = st.sidebar.slider("Imperviousness", 0.0, 1.0, 0.63)
+    resilience = round(0.4 * (1 - flood_risk) + 0.3 * ndvi + 0.3 * (1 - impervious), 2)
+    st.sidebar.metric("Resilience Score", resilience)
+else:
+    st.sidebar.info(" Please enter a query and click **Submit Query** to view indicators and the interactive map.")
 
 # ------------------------------
-# MAIN PAGE
-# ------------------------------
-# st.title(" NatureMind AI - Oxfordshire Flood Resilience & Planning Dashboard (Demo)")
-# st.markdown("""
-# This dashboard presents **environmental, economic, and compliance insights** derived from
-# the *NatureMind Final Report (2025)* on Oxfordshire flood resilience and planning.
-# """)
-
-# ------------------------------
-# CUSTOM HEADER STYLE — PERFECT LEFT ALIGNMENT
+# MAIN PAGE HEADER
 # ------------------------------
 st.markdown("""
     <style>
@@ -57,7 +64,7 @@ st.markdown("""
     }
     .sub-header {
         text-align: left;
-        font-size: 18px;
+        font-size: 16px;
         color: #444;
         margin-top: 6px;
         line-height: 1.45;
@@ -66,7 +73,7 @@ st.markdown("""
     </style>
 
     <div class="main-header">
-        🌍 NatureMind AI — Oxfordshire Flood Resilience & Planning Dashboard (Demo)
+         NatureMind AI - Oxfordshire Flood Resilience & Planning Dashboard (Demo)
     </div>
     <div class="sub-header">
         This dashboard presents <strong>environmental, economic, and compliance insights</strong> derived from the 
@@ -74,25 +81,31 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-
-tab1, tab2, tab3 = st.tabs([" Map View", "Analytics", " Report Summary"])
+# ------------------------------
+# TABS
+# ------------------------------
+tab1, tab2, tab3 = st.tabs([" Map View", " Analytics", " Report Summary"])
 
 # ------------------------------
-# MAP TAB
+# MAP TAB — appears only after submission
+# ------------------------------
+# ------------------------------
+# MAP TAB — show clean Oxfordshire map only
 # ------------------------------
 with tab1:
-    st.subheader(" Interactive Map: Oxfordshire Wetland Sites")
-    m = folium.Map(location=[51.75, -1.25], zoom_start=9)
-    folium.Marker([51.7041, -1.55257], popup="Site 675 — 32.37 ha — High Suitability").add_to(m)
-    folium.Marker([51.8259, -1.16916], popup="Site 294 — 14.54 ha — Moderate Suitability").add_to(m)
-    folium.Marker([51.7101, -1.49567], popup="Site 607 — 10.50 ha — Balanced Benefits").add_to(m)
-    st_folium(m, width=700, height=480)
+    st.subheader(" Interactive Map: Oxfordshire Region")
+
+    if st.session_state.submitted:
+        # Display only the Oxfordshire base map
+        m = folium.Map(location=[51.75, -1.25], zoom_start=9, tiles="CartoDB positron")
+        st_folium(m, width=900, height=500)
+    else:
+        st.info(" Please submit a query to view the interactive map.")
 
 # ------------------------------
-# ANALYTICS TAB (color-coded + maps)
+# ANALYTICS TAB
 # ------------------------------
 with tab2:
-    # Styles
     st.markdown("""
         <style>
         .section-title-blue {
@@ -121,15 +134,10 @@ with tab2:
             padding-left: 0.3rem;
             padding-right: 0.3rem;
         }
-        .rec-list {
-            margin-top: 0.4em;
-            margin-left: 1.5em;
-        }
         </style>
     """, unsafe_allow_html=True)
 
-    # ---- Compliance Evaluation ----
-    st.markdown("<div class='section-title-blue'>️ Compliance Evaluation</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-blue'> Compliance Evaluation</div>", unsafe_allow_html=True)
     st.metric("Compliance Score", "0.85", "Fully Compliant")
 
     st.markdown("""
@@ -143,7 +151,7 @@ with tab2:
     st.markdown("""
     <div class='content-text'>
     <strong>Recommendations:</strong>
-    <ul class='rec-list'>
+    <ul>
         <li>Expand wetlands and woodland buffers</li>
         <li>Incentivize NbS adoption in land-use planning</li>
         <li>Integrate NbS into local infrastructure upgrades</li>
@@ -152,9 +160,7 @@ with tab2:
     """, unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
-
-    # ---- Infrastructure & Economic Impact Overview ----
-    st.markdown("<div class='section-title-green'> Infrastructure & Economic Impact Overview</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-green'>Infrastructure & Economic Impact Overview</div>", unsafe_allow_html=True)
     st.markdown("""
     <div class='content-text'>
     Flood events in Oxfordshire have the greatest effect on <strong>roads</strong> and <strong>railways</strong>,
@@ -167,8 +173,6 @@ with tab2:
     """, unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
-
-    # ---- Flood Map Figures ----
     st.subheader(" Flood Map Figures and Spatial Insights")
 
     col1, col2 = st.columns(2)
@@ -183,58 +187,26 @@ with tab2:
     with col4:
         st.image("finance_damage_proportion.png", caption="Proportion of Total Flood-Related Financial Damage (%)", use_container_width=True)
 
-    st.markdown("""
-    <div class='content-text'>
-    <strong>Interpretation:</strong> These figures illustrate flood exposure, temporal variation, and economic
-    damage distribution across Oxfordshire based on hydrological projections.
-    </div>
-    """, unsafe_allow_html=True)
-
 # ------------------------------
-# REPORT TAB (aligned text + map + download)
+# REPORT TAB
 # ------------------------------
 with tab3:
-    st.markdown("""
-        <style>
-        .report-text {
-            text-align: justify;
-            line-height: 1.6;
-            max-width: 900px;
-            padding-right: 1rem;
-        }
-        .report-title {
-            font-size: 22px;
-            font-weight: 700;
-            color: #003366;
-            margin-bottom: 10px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div class='report-title'> NatureMind Final Report — Executive Summary</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-blue'> NatureMind Final Report - Executive Summary</div>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([1.25, 1])
 
     with col1:
         st.markdown("""
-        <div class='report-text'>
         The proposed wetland interventions across Oxfordshire focus on hydrologically sensitive regions where 
         flood risk mitigation and ecosystem restoration align most effectively. The three identified sites - 
-        <strong>Proposal 675 (32.3 ha)</strong> near western Oxford, <strong>Proposal 294 (14.5 ha)</strong> 
-        in the northeast corridor, and <strong>Proposal 607 (10.5 ha)</strong> in the southwest — were selected 
-        based on suitability scores from NatureMind’s environmental risk model.  
-
-        These wetlands contribute to:
-        <ul>
-        <li><strong>Reduced surface runoff</strong> in high flood-frequency zones.</li>
-        <li><strong>Improved ecological balance</strong> through vegetation regeneration.</li>
-        <li><strong>Increased resilience</strong> for adjacent transport and agricultural infrastructure.</li>
-        </ul>
-
-        The selection integrates geospatial hydrology, vegetation indices, and impervious surface mapping, 
-        ensuring a balance between flood management and biodiversity gain. Each proposal aligns with Oxfordshire’s 
-        climate resilience strategy and demonstrates the value of evidence-based Nature-based Solutions (NbS).
-        </div>
+        <strong>Proposal 675 (32.3 ha)</strong>, <strong>Proposal 294 (14.5 ha)</strong>, and 
+        <strong>Proposal 607 (10.5 ha)</strong> - were selected based on suitability scores from 
+        NatureMind’s environmental risk model.  
+        <br><br>
+        These wetlands contribute to:<br>
+        • Reduced surface runoff in high flood-frequency zones.<br>
+        • Improved ecological balance through vegetation regeneration.<br>
+        • Increased resilience for adjacent transport and agricultural infrastructure.
         """, unsafe_allow_html=True)
 
         try:
@@ -246,20 +218,10 @@ with tab3:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         except FileNotFoundError:
-            st.warning("NatureMind_Final_Report.docx not found in working directory.")
-
-    # with col2:
-    #     st.markdown("** Proposed Wetlands Map**")
-    #     try:
-    #         with open("oxfordshire_planner_map_evt2755.html", "r", encoding="utf-8") as f:
-    #             html(f.read(), height=450, scrolling=True)
-    #     except FileNotFoundError:
-    #         st.warning("️ The file 'oxfordshire_planner_map_evt2755.html' was not found. Please ensure it’s in the same directory as this script.")
-
+            st.warning(" 'NatureMind_Final_Report.docx' not found in working directory.")
 
     with col2:
-        st.markdown("Temporal Flood Extent Evolution (1980–1990)")
-
+        st.markdown(" Temporal Flood Extent Evolution (1980–1990)")
         gif_path = "wetlands_animation.gif"
         try:
             with open(gif_path, "rb") as f:
@@ -267,25 +229,16 @@ with tab3:
                 b64 = base64.b64encode(gif_bytes).decode()
                 gif_html = f"""
                     <div style='text-align:center;'>
-                        <img src='data:image/gif;base64,{b64}' alt='Wetland Simulation'
+                        <img src='data:image/gif;base64,{b64}' alt='Flood Animation'
                              style='width:100%; height:auto; border-radius:10px;' />
                         <p style='font-size:14px; color:#555; margin-top:5px;'>
-                            Evolution of Proposed Wetlands — Oxfordshire
+                            Historical flood extent dynamics across Oxfordshire — illustrating spatial expansion of flood zones up to 1990.
                         </p>
                     </div>
                 """
                 html(gif_html, height=420)
         except FileNotFoundError:
-            st.warning(
-                "⚠️ 'wetlands_animation.gif' not found. Please ensure it's in the same directory as this script.")
-
-    st.markdown("""
-    <div class='report-text'>
-    <strong>Summary:</strong>  
-    The integrated NbS proposals highlight Oxfordshire’s proactive approach to combining 
-    flood mitigation, ecological sustainability, and economic adaptation within its policy framework.
-    </div>
-    """, unsafe_allow_html=True)
+            st.warning("️ 'wetlands_animation.gif' not found. Please ensure it's in the same directory.")
 
 st.markdown("---")
-st.caption("NatureMind AI © 2025 — Demo Dashboard for End-to-End Planning and Resilience Pipeline.")
+st.caption("NatureMind AI © 2025 - Demo Dashboard for End-to-End Planning and Resilience Pipeline.")
