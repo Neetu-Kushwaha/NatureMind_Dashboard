@@ -93,15 +93,41 @@ tab1, tab2, tab3 = st.tabs([" Map View", " Analytics", " Report Summary"])
 # MAP TAB — show clean Oxfordshire map only
 # ------------------------------
 with tab1:
-    st.subheader(" Interactive Map: Oxfordshire Region")
+    st.subheader("Interactive Map: Oxfordshire Wetland Sites")
 
-    if st.session_state.submitted:
-        # Display only the Oxfordshire base map
-        m = folium.Map(location=[51.75, -1.25], zoom_start=9, tiles="CartoDB positron")
-        st_folium(m, width=900, height=500)
-    else:
-        st.info(" Please submit a query to view the interactive map.")
+    # Create the map centered on Oxfordshire
+    m = folium.Map(location=[51.75, -1.25], zoom_start=9, tiles='OpenStreetMap')
 
+    # Add circle markers instead of default icon markers (which sometimes break in Streamlit)
+    folium.CircleMarker(
+        location=[51.7041, -1.55257],
+        radius=7,
+        color='blue',
+        fill=True,
+        fill_color='blue',
+        popup="Site 675 — 32.37 ha — High Suitability"
+    ).add_to(m)
+
+    folium.CircleMarker(
+        location=[51.8259, -1.16916],
+        radius=7,
+        color='green',
+        fill=True,
+        fill_color='green',
+        popup="Site 294 — 14.54 ha — Moderate Suitability"
+    ).add_to(m)
+
+    folium.CircleMarker(
+        location=[51.7101, -1.49567],
+        radius=7,
+        color='orange',
+        fill=True,
+        fill_color='orange',
+        popup="Site 607 — 10.50 ha — Balanced Benefits"
+    ).add_to(m)
+
+    # Display map in Streamlit
+    st_folium(m, width=700, height=480)
 # ------------------------------
 # ANALYTICS TAB
 # ------------------------------
