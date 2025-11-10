@@ -3,6 +3,7 @@ import folium
 from streamlit_folium import st_folium
 import base64
 from streamlit.components.v1 import html
+import time
 
 # ------------------------------
 # PAGE CONFIG
@@ -10,14 +11,18 @@ from streamlit.components.v1 import html
 st.set_page_config(page_title="NatureMind AI Dashboard", layout="wide")
 
 # ------------------------------
+# SESSION STATE
+# ------------------------------
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
+if "status" not in st.session_state:
+    st.session_state.status = "Idle"
+
+# ------------------------------
 # SIDEBAR – LOGO + PARAMETERS
 # ------------------------------
 st.sidebar.image("nature_logo.png", use_container_width=True)
 st.sidebar.markdown("### LLM & System Parameters")
-
-# Use session state to persist submit action
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
 
 query = st.sidebar.text_input(
     "User Query",
@@ -25,14 +30,45 @@ query = st.sidebar.text_input(
 )
 uploaded_file = st.sidebar.file_uploader("Upload PDF (Optional)", type=["pdf"])
 
+# if st.sidebar.button("Submit Query"):
+#     if query.strip():
+#         st.session_state.status = "Processing"
+#         with st.spinner("Processing your query... Please wait ⏳"):
+#             time.sleep(3)  # simulate model computation delay
+#         st.session_state.submitted = True
+#         st.session_state.status = "Ready"
+#         st.sidebar.success("✅ Query processed successfully!")
+#     else:
+#         st.sidebar.warning("⚠️ Please enter a valid query before submitting.")
+
+
 if st.sidebar.button("Submit Query"):
     if query.strip():
-        st.session_state.submitted = True
-        st.sidebar.success(" Query submitted successfully!")
-    else:
-        st.sidebar.warning(" Please enter a valid query before submitting.")
+        st.session_state.status = "Processing"
+        st.sidebar.info("Running NatureMind AI inference...")
 
-# Only show indicators and map after submission
+        # Add a dynamic progress bar
+        progress_bar = st.sidebar.progress(0)
+        status_text = st.sidebar.empty()
+
+        for i in range(100):
+            time.sleep(0.08)  # total ~8 seconds
+            progress_bar.progress(i + 1)
+            status_text.text(f"Processing... {i + 1}%")
+
+        # Finish progress
+        progress_bar.empty()
+        status_text.text(" Processing complete!")
+
+        st.session_state.submitted = True
+        st.session_state.status = "Ready"
+        st.sidebar.success(" Query processed successfully!")
+    else:
+        st.sidebar.warning("️ Please enter a valid query before submitting.")
+
+# ------------------------------
+# SIDEBAR METRICS
+# ------------------------------
 if st.session_state.submitted:
     confidence = st.sidebar.slider("LLM Confidence", 0.0, 1.0, 0.92)
     mode = "Auto" if confidence >= 0.6 else "Interactive"
@@ -40,14 +76,37 @@ if st.session_state.submitted:
     st.sidebar.write(f"**Location:** Oxfordshire, England")
 
     st.sidebar.divider()
-    st.sidebar.markdown("####  Model Indicators")
+    st.sidebar.markdown("#### Model Indicators")
     flood_risk = st.sidebar.slider("Flood Risk", 0.0, 1.0, 0.82)
     ndvi = st.sidebar.slider("NDVI (Vegetation Index)", 0.0, 1.0, 0.48)
     impervious = st.sidebar.slider("Imperviousness", 0.0, 1.0, 0.63)
     resilience = round(0.4 * (1 - flood_risk) + 0.3 * ndvi + 0.3 * (1 - impervious), 2)
     st.sidebar.metric("Resilience Score", resilience)
 else:
-    st.sidebar.info(" Please enter a query and click **Submit Query** to view indicators and the interactive map.")
+    st.sidebar.info("Please enter a query and click **Submit Query** to view indicators and the interactive map.")
+
+# ------------------------------
+# STATUS INDICATOR (TOP-LEFT BADGE)
+# ------------------------------
+status_colors = {"Idle": "#6c757d", "Processing": "#f0ad4e", "Ready": "#5cb85c"}
+st.markdown(
+    f"""
+    <div style="
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background-color: {status_colors[st.session_state.status]};
+        color: white;
+        padding: 8px 14px;
+        border-radius: 12px;
+        font-weight: bold;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        z-index: 1000;">
+        Status: {st.session_state.status}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ------------------------------
 # MAIN PAGE HEADER
@@ -87,49 +146,39 @@ st.markdown("""
 tab1, tab2, tab3 = st.tabs([" Map View", " Analytics", " Report Summary"])
 
 # ------------------------------
-# MAP TAB — appears only after submission
-# ------------------------------
-# ------------------------------
-# MAP TAB — show clean Oxfordshire map only
+# TAB 1 — INTERACTIVE MAP
 # ------------------------------
 with tab1:
     st.subheader("Interactive Map: Oxfordshire Wetland Sites")
 
-    # Create the map centered on Oxfordshire
-    m = folium.Map(location=[51.75, -1.25], zoom_start=9, tiles='OpenStreetMap')
+    if st.session_state.submitted:
+        # Create map only after query submission
+        m = folium.Map(location=[51.75, -1.25], zoom_start=9)
 
-    # Add circle markers instead of default icon markers (which sometimes break in Streamlit)
-    folium.CircleMarker(
-        location=[51.7041, -1.55257],
-        radius=7,
-        color='blue',
-        fill=True,
-        fill_color='blue',
-        popup="Site 675 — 32.37 ha — High Suitability"
-    ).add_to(m)
+        folium.CircleMarker(
+            [51.7041, -1.55257],
+            radius=7, color='blue', fill=True, fill_color='blue',
+            popup="Site 675 — 32.37 ha — High Suitability"
+        ).add_to(m)
 
-    folium.CircleMarker(
-        location=[51.8259, -1.16916],
-        radius=7,
-        color='green',
-        fill=True,
-        fill_color='green',
-        popup="Site 294 — 14.54 ha — Moderate Suitability"
-    ).add_to(m)
+        folium.CircleMarker(
+            [51.8259, -1.16916],
+            radius=7, color='green', fill=True, fill_color='green',
+            popup="Site 294 — 14.54 ha — Moderate Suitability"
+        ).add_to(m)
 
-    folium.CircleMarker(
-        location=[51.7101, -1.49567],
-        radius=7,
-        color='orange',
-        fill=True,
-        fill_color='orange',
-        popup="Site 607 — 10.50 ha — Balanced Benefits"
-    ).add_to(m)
+        folium.CircleMarker(
+            [51.7101, -1.49567],
+            radius=7, color='orange', fill=True, fill_color='orange',
+            popup="Site 607 — 10.50 ha — Balanced Benefits"
+        ).add_to(m)
 
-    # Display map in Streamlit
-    st_folium(m, width=700, height=480)
+        st_folium(m, width=700, height=480)
+    else:
+        st.info("💡 Enter a query in the sidebar and click **Submit Query** to load the interactive map.")
+
 # ------------------------------
-# ANALYTICS TAB
+# TAB 2 — ANALYTICS
 # ------------------------------
 with tab2:
     st.markdown("""
@@ -153,8 +202,6 @@ with tab2:
         .content-text {
             width: 100%;
             max-width: 1000px;
-            margin-left: 0 !important;
-            margin-right: auto !important;
             text-align: justify;
             line-height: 1.55;
             padding-left: 0.3rem;
@@ -163,7 +210,7 @@ with tab2:
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<div class='section-title-blue'> Compliance Evaluation</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-blue'>Compliance Evaluation</div>", unsafe_allow_html=True)
     st.metric("Compliance Score", "0.85", "Fully Compliant")
 
     st.markdown("""
@@ -199,7 +246,7 @@ with tab2:
     """, unsafe_allow_html=True)
 
     st.markdown("<hr>", unsafe_allow_html=True)
-    st.subheader(" Flood Map Figures and Spatial Insights")
+    st.subheader("Flood Map Figures and Spatial Insights")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -211,14 +258,13 @@ with tab2:
     with col3:
         st.image("finance_damage_by_asset.png", caption="Estimated Damages by Asset Type (€)", use_container_width=True)
     with col4:
-        st.image("finance_damage_proportion1.png", caption="Proportion of Total Flood-Related Financial Damage (%)", use_container_width=True)
+        st.image("finance_damage_proportion.png", caption="Proportion of Total Flood-Related Financial Damage (%)", use_container_width=True)
 
 # ------------------------------
-# REPORT TAB
+# TAB 3 — REPORT SUMMARY
 # ------------------------------
 with tab3:
-    st.markdown("<div class='section-title-blue'> NatureMind Final Report - Executive Summary</div>", unsafe_allow_html=True)
-
+    st.markdown("<div class='section-title-blue'>NatureMind Final Report - Executive Summary</div>", unsafe_allow_html=True)
     col1, col2 = st.columns([1.25, 1])
 
     with col1:
@@ -236,7 +282,7 @@ with tab3:
         """, unsafe_allow_html=True)
 
         try:
-            with open("NatureMind_Final_Report1.docx", "rb") as f:
+            with open("NatureMind_Final_Report.docx", "rb") as f:
                 st.download_button(
                     label=" Download NatureMind Final Report",
                     data=f,
@@ -244,10 +290,10 @@ with tab3:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         except FileNotFoundError:
-            st.warning(" 'NatureMind_Final_Report.docx' not found in working directory.")
+            st.warning("️ 'NatureMind_Final_Report.docx' not found in working directory.")
 
     with col2:
-        st.markdown(" Temporal Flood Extent Evolution (1980–1990)")
+        st.markdown("Temporal Flood Extent Evolution (1980–2021)")
         gif_path = "wetlands_animation.gif"
         try:
             with open(gif_path, "rb") as f:
@@ -260,7 +306,7 @@ with tab3:
                         <p style='font-size:14px; color:#555; margin-top:5px;'>
                             Historical flood extent dynamics across Oxfordshire — illustrating spatial expansion of flood zones up to 1990.
                         </p>
-                    </div>
+                    </div>Processing your query... Please wait 
                 """
                 html(gif_html, height=420)
         except FileNotFoundError:
